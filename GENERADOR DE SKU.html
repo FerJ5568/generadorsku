@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de SKU — Color Make</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f9f9f7; --bg-card: #ffffff; --bg-surface: #f1efe8;
+    --bg-info: #e6f1fb; --bg-success: #eaf3de; --bg-warning: #faeeda;
+    --bg-danger: #fcebeb; --bg-pending: #fff8e6;
+    --text: #1a1a18; --text-secondary: #5f5e5a; --text-tertiary: #888780;
+    --text-info: #0c447c; --text-success: #27500a;
+    --text-warning: #633806; --text-danger: #791f1f; --text-pending: #7a5100;
+    --border: rgba(0,0,0,0.12); --border-strong: rgba(0,0,0,0.22);
+    --border-info: rgba(24,95,165,0.3); --border-pending: rgba(186,117,23,0.55);
+    --accent: #185fa5; --accent-hover: #0c447c; --pending-bg: #faeeda;
+    --radius: 8px; --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono','Fira Code','Consolas',monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg-card: #242422; --bg-surface: #2c2c2a;
+      --bg-info: #042c53; --bg-success: #173404; --bg-warning: #412402;
+      --bg-danger: #501313; --bg-pending: #3a2800;
+      --text: #e8e6de; --text-secondary: #b4b2a9; --text-tertiary: #888780;
+      --text-info: #85b7eb; --text-success: #97c459;
+      --text-warning: #ef9f27; --text-danger: #f09595; --text-pending: #ef9f27;
+      --border: rgba(255,255,255,0.1); --border-strong: rgba(255,255,255,0.2);
+      --border-info: rgba(55,138,221,0.35); --border-pending: rgba(239,159,39,0.55);
+      --accent: #378add; --accent-hover: #85b7eb; --pending-bg: #412402;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px 16px 60px; }
+  .container { max-width: 920px; margin: 0 auto; }
+
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 0.5px solid var(--border); }
+  .logo-mark { width: 42px; height: 42px; background: var(--accent); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -0.5px; flex-shrink: 0; }
+  .header-text h1 { font-size: 18px; font-weight: 500; }
+  .header-text p { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* Description card */
+  .desc-card { background: var(--bg-card); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+  .desc-card h2 { font-size: 14px; font-weight: 500; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .desc-tip { font-size: 11px; color: var(--text-tertiary); background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 2px 7px; }
+  textarea#desc { width: 100%; min-height: 78px; max-height: 160px; resize: vertical; background: var(--bg); color: var(--text); border: 0.5px solid var(--border-strong); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; font-family: var(--font); line-height: 1.6; outline: none; margin-top: 10px; transition: border-color .15s; }
+  textarea#desc:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--bg-info); }
+  textarea#desc::placeholder { color: var(--text-tertiary); }
+  .desc-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .analyzing { display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .analyzing.show { display: flex; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; align-items: start; }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--bg-card); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .section-label { font-size: 11px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 0.5px solid var(--border); }
+  .section-label:first-child { margin-top: 0; }
+  .field { margin-bottom: 12px; }
+  .field label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
+  .badge { font-size: 10px; background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text-tertiary); font-family: var(--mono); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  select, input[type="text"] {
+    width: 100%; height: 36px;
+    background: var(--bg); color: var(--text);
+    border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    padding: 0 10px; font-size: 13px; font-family: var(--font);
+    outline: none; appearance: none; -webkit-appearance: none;
+    cursor: pointer; transition: border-color .15s, background .2s;
+  }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+  select:focus, input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--bg-info); }
+  input.mono { font-family: var(--mono); letter-spacing: 1px; }
+
+  /* PENDING state */
+  select.pending {
+    border-color: var(--border-pending) !important;
+    background-color: var(--pending-bg) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ba7517' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+    color: var(--text-pending) !important;
+    box-shadow: 0 0 0 2px rgba(186,117,23,.18) !important;
+  }
+  input.pending { border-color: var(--border-pending) !important; background: var(--pending-bg) !important; color: var(--text-pending) !important; box-shadow: 0 0 0 2px rgba(186,117,23,.18) !important; }
+  .pending-tag { display: none; font-size: 10px; color: var(--text-warning); background: var(--bg-warning); border: 0.5px solid var(--border-pending); border-radius: 4px; padding: 2px 7px; margin-top: 3px; align-items: center; gap: 4px; }
+  .pending-tag.show { display: inline-flex; }
+
+  /* Otro input */
+  .otro-wrap { display: none; margin-top: 6px; }
+  .otro-wrap.show { display: block; }
+  .otro-wrap input { height: 34px; font-size: 13px; }
+  .otro-wrap input::placeholder { color: var(--text-tertiary); }
+
+  /* SKU Panel */
+  .sku-panel { background: var(--bg-card); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; position: sticky; top: 20px; }
+  .sku-panel-title { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .char-legend { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 12px; }
+  .cl-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-tertiary); padding: 2px 6px 2px 4px; border-radius: 4px; border: 0.5px solid var(--border); }
+  .cl-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .sku-chars { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 12px; }
+  .sku-char { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; font-family: var(--mono); border-radius: 5px; border: 0.5px solid var(--border); background: var(--bg-surface); color: var(--text-tertiary); transition: background .2s, color .2s; }
+  .sku-char.filled { background: var(--bg-info); color: var(--text-info); border-color: var(--border-info); }
+
+  .progress-wrap { margin-bottom: 12px; }
+  .progress-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .progress-bar { height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s ease; }
+
+  .pending-bar { display: none; align-items: center; gap: 7px; font-size: 12px; color: var(--text-pending); background: var(--pending-bg); border: 0.5px solid var(--border-pending); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 10px; }
+  .pending-bar.show { display: flex; }
+
+  .valid-badge { display: none; align-items: center; gap: 6px; font-size: 12px; padding: 6px 10px; border-radius: var(--radius); margin-bottom: 12px; }
+  .valid-badge.ok { display: flex; background: var(--bg-success); color: var(--text-success); border: 0.5px solid rgba(99,153,34,.3); }
+  .valid-badge.err { display: flex; background: var(--bg-danger); color: var(--text-danger); border: 0.5px solid rgba(226,75,74,.3); }
+  .valid-badge.warn { display: flex; background: var(--pending-bg); color: var(--text-pending); border: 0.5px solid var(--border-pending); }
+
+  /* SKU string + copy button as one unit */
+  .sku-block { margin-bottom: 14px; }
+  .sku-string { font-family: var(--mono); font-size: 20px; font-weight: 500; letter-spacing: 3px; color: var(--text); padding: 10px 12px; background: var(--bg-surface); border-radius: var(--radius) var(--radius) 0 0; border: 0.5px solid var(--border); border-bottom: none; min-height: 48px; display: flex; align-items: center; word-break: break-all; }
+  .sku-string.incomplete { color: var(--text-tertiary); }
+  .sku-copy-btn { width: 100%; height: 34px; background: var(--bg-surface); border: 0.5px solid var(--border); border-top: 0.5px solid var(--border-strong); border-radius: 0 0 var(--radius) var(--radius); color: var(--text-secondary); font-size: 12px; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, color .15s; }
+  .sku-copy-btn:hover { background: var(--bg-info); color: var(--text-info); }
+
+  /* JSON */
+  .json-section { display: none; }
+  .json-section.visible { display: block; }
+  .json-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; margin-top: 14px; }
+  pre.json-out { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; color: var(--text-secondary); background: var(--bg-surface); border-radius: var(--radius); padding: 12px; overflow-x: auto; border: 0.5px solid var(--border); white-space: pre; }
+  .kc { color: var(--accent); } .vc { color: var(--text-success); } .nc { color: var(--text-warning); }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button { height: 34px; padding: 0 14px; border: 0.5px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-card); color: var(--text); font-size: 12px; font-family: var(--font); cursor: pointer; transition: background .15s; display: flex; align-items: center; gap: 5px; }
+  button:hover { background: var(--bg-surface); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-analyze { height: 36px; padding: 0 16px; font-size: 13px; background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-analyze:hover { background: var(--accent-hover); }
+  .btn-analyze:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-reset { font-size: 12px; color: var(--text-tertiary); cursor: pointer; text-decoration: underline; text-decoration-color: transparent; background: none; border: none; padding: 0; height: auto; transition: color .15s; margin-top: 14px; display: inline-block; }
+  .btn-reset:hover { color: var(--text-secondary); background: none; text-decoration-color: var(--text-secondary); }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); font-size: 13px; padding: 10px 18px; border-radius: var(--radius); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 999; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo-mark">CM</div>
+    <div class="header-text">
+      <h1>Generador de SKU</h1>
+      <p>Color Make · Estructura de 16 dígitos para Odoo</p>
+    </div>
+  </div>
+
+  <!-- Description card -->
+  <div class="desc-card">
+    <h2>
+      Descripción del producto
+      <span class="desc-tip">Pega el nombre y los campos se rellenan automáticamente</span>
+    </h2>
+    <textarea id="desc" placeholder='Ej: "Taza de cerámica 11oz Blanca Interior y asa rojo (Caja de 36) Color Make"&#10;o "Botella de acero 600ml para grabado laser Color Azul caja 12"'></textarea>
+    <div class="desc-actions">
+      <button class="btn-analyze" id="analyze-btn" onclick="analyzeDescription()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/></svg>
+        Analizar y rellenar campos
+      </button>
+      <div class="analyzing" id="analyzing-ind">
+        <div class="spinner"></div>
+        Analizando…
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT FORM -->
+    <div class="card">
+
+      <div class="section-label">① Marca</div>
+      <div class="field">
+        <label>Marca <span class="badge">pos 1</span></label>
+        <select id="marca" onchange="handleOtro('marca');build()">
+          <option value="">— Selecciona —</option>
+          <option value="C">C — Color Make</option>
+          <option value="B">B — Blue Heat</option>
+          <option value="W">W — Marca Blanca</option>
+          <option value="H">H — Huax (tercero)</option>
+          <option value="P">P — Promoción</option>
+          <option value="__otro__">Otro…</option>
+        </select>
+        <span class="pending-tag" id="pt-marca">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Pendiente de seleccionar
+        </span>
+        <div class="otro-wrap" id="otro-marca"><input type="text" placeholder="Código (1 char) y descripción"></div>
+      </div>
+
+      <div class="section-label">② Categoría y sub categoría</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Categoría <span class="badge">pos 2</span></label>
+          <select id="cat" onchange="loadSubcat();handleOtro('cat');build()">
+            <option value="">— Selecciona —</option>
+            <option value="A">A — Blanks sublimables</option>
+            <option value="B">B — Prensas / equipos</option>
+            <option value="C">C — Tintas</option>
+            <option value="D">D — Vinil</option>
+            <option value="E">E — Equipos especiales</option>
+            <option value="F">F — Papel</option>
+            <option value="G">G — Acrílicos / ACRISUB</option>
+            <option value="H">H — Varios / accesorios</option>
+            <option value="N">N — Neopreno</option>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-cat">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente de seleccionar
+          </span>
+          <div class="otro-wrap" id="otro-cat"><input type="text" placeholder="Código (1 char) y descripción"></div>
+        </div>
+        <div class="field">
+          <label>Sub categoría <span class="badge">pos 3</span></label>
+          <select id="subcat" onchange="handleOtro('subcat');build()">
+            <option value="">— Selecciona —</option>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-subcat">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente de seleccionar
+          </span>
+          <div class="otro-wrap" id="otro-subcat"><input type="text" placeholder="Código (1 char) y descripción"></div>
+        </div>
+      </div>
+
+      <div class="section-label">③ Tipo de producto y acabado</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Tipo de producto <span class="badge">pos 4–5</span></label>
+          <select id="tipo" onchange="handleOtro('tipo');build()">
+            <option value="">— Selecciona —</option>
+            <optgroup label="Cerámica / vidrio"><option value="MG">MG — Mug / Taza</option><option value="JR">JR — Jarra</option><option value="VS">VS — Vaso</option><option value="RF">RF — Caja reforzada</option><option value="TR">TR — Tarro</option></optgroup>
+            <optgroup label="Acero / aluminio"><option value="BT">BT — Botella</option><option value="CN">CN — Lata / Can</option><option value="VS">VS — Vaso acero</option><option value="MG">MG — Taza acero</option></optgroup>
+            <optgroup label="Accesorios"><option value="KC">KC — Llavero</option><option value="DS">DS — Destapador</option><option value="LB">LB — Llavero botella</option><option value="PN">PN — Pluma aluminio</option><option value="LM">LM — Lámina aluminio</option></optgroup>
+            <optgroup label="Vinil HTV"><option value="BL">BL — Block</option><option value="FL">FL — Flock</option><option value="GL">GL — Glitter</option><option value="PF">PF — Puff</option><option value="RF">RF — Reflectivo</option><option value="FO">FO — Foil</option><option value="PU">PU — PU More Sticky</option><option value="NE">NE — Neón</option><option value="MT">MT — Metallic PCU</option><option value="SF">SF — Metallic Soft</option><option value="NG">NG — Non Glue</option><option value="PV">PV — PVC</option><option value="TC">TC — Sublitec</option><option value="CM">CM — Camaleón</option><option value="GW">GW — Glow dark</option><option value="RG">RG — Rígido / imprimible</option></optgroup>
+            <optgroup label="Papel / rollos"><option value="SP">SP — Sublimación paquete</option><option value="SJ">SJ — Jumbo roll</option><option value="TN">TN — Transfer tela</option><option value="SC">SC — Sublicoton</option><option value="AD">AD — Fotográfico adhesivo</option><option value="GL">GL — Fotográfico glossy</option><option value="TS">TS — Tissue</option></optgroup>
+            <optgroup label="Tintas"><option value="BT">BT — Bote tinta</option><option value="EP">EP — Compatible Epson</option><option value="HP">HP — Compatible HP</option><option value="BN">BN — DTF etiqueta negra</option><option value="BB">BB — DTF etiqueta blanca</option><option value="UV">UV — Tinta UV</option><option value="SL">SL — Solución limpiadora</option></optgroup>
+            <optgroup label="Prensas"><option value="PR">PR — Prensa general</option><option value="PM">PM — Prensa plana manual</option><option value="PA">PA — Prensa semi-auto</option><option value="CB">CB — Combo</option><option value="PP">PP — Prensa para gorra</option></optgroup>
+            <optgroup label="MDF / Acrílico"><option value="PR">PR — Portarretrato</option><option value="PZ">PZ — Rompecabezas</option><option value="KC">KC — Llavero MDF</option><option value="IM">IM — Imán</option><option value="AD">AD — Adorno</option><option value="PV">PV — Portavasos</option><option value="RJ">RJ — Reloj</option><option value="KS">KS — Llavero ACRISUB</option><option value="PS">PS — Portarretrato ACRISUB</option><option value="RS">RS — Rompecabezas ACRISUB</option><option value="LA">LA — Lámina acrílico</option><option value="LE">LE — Lámina esmerilado</option></optgroup>
+            <optgroup label="Textil / gorras"><option value="PY">PY — Playera</option><option value="MD">MD — Mandil</option><option value="PT">PT — Pantufla</option><option value="BB">BB — Pañalero</option><option value="SD">SD — Sudadera</option><option value="CP">CP — Gorra</option><option value="BO">BO — Bolsa ecológica</option><option value="MO">MO — Mochila</option></optgroup>
+            <optgroup label="Varios"><option value="MP">MP — Mousepad neopreno</option><option value="PG">PG — Portagafete</option><option value="RP">RP — Rompecabezas cartón</option><option value="CT">CT — Cinta térmica</option><option value="FP">FP — Foto piedra</option><option value="NA">NA — No aplica</option></optgroup>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-tipo">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente de seleccionar
+          </span>
+          <div class="otro-wrap" id="otro-tipo"><input type="text" placeholder="Código (2 chars) y descripción"></div>
+        </div>
+        <div class="field">
+          <label>Acabado / variante <span class="badge">pos 6–7</span></label>
+          <select id="acabado" onchange="handleOtro('acabado');build()">
+            <option value="">— Selecciona —</option>
+            <optgroup label="Cerámica"><option value="AA">AA — Grado A / AAA estándar</option><option value="CI">CI — Color interior y asa</option><option value="MA">MA — Mágica</option><option value="MI">MI — Mágica con interior</option><option value="GL">GL — Glitter mágica</option><option value="MR">MR — Espejo</option><option value="SP">SP — Perlada</option><option value="NE">NE — Neón</option><option value="CU">CU — Con cuchara</option><option value="TS">TS — Tapa de silicón</option><option value="HT">HT — Asa de corazón</option><option value="FR">FR — Frosted matte</option><option value="CN">CN — Cónica</option><option value="BR">BR — Base redonda</option><option value="AC">AC — Asa cuadrada</option><option value="VN">VN — Ventana</option><option value="EP">EP — Estilo peltre</option><option value="BC">BC — Borde color peltre</option><option value="LE">LE — Lechera</option><option value="PA">PA — Pareja asa corazón</option></optgroup>
+            <optgroup label="Acero / aluminio"><option value="AL">AL — Para laser</option><option value="AR">AR — Rosca sublimación</option><option value="CU">CU — Cuello de plástico</option><option value="SP">SP — Deportiva</option><option value="IF">IF — Infantil</option><option value="RO">RO — Tapa de rosca</option><option value="PR">PR — Botón presionable</option><option value="OA">OA — Tapa y aro</option><option value="ST">ST — Starbooks</option><option value="VJ">VJ — Viajero doble</option><option value="PY">PY — Playero cónico</option><option value="SK">SK — Skinny</option><option value="VN">VN — Vinero</option><option value="CC">CC — Camper chico</option><option value="CG">CG — Camper grande</option><option value="JS">JS — Jumbo sublimación</option><option value="JL">JL — Jumbo laser</option><option value="LK">LK — Laser skinny</option><option value="VL">VL — Vinero laser</option><option value="PL">PL — Playero laser</option><option value="RF">RF — Refresco</option><option value="BR">BR — Barril</option></optgroup>
+            <optgroup label="Vidrio"><option value="CV">CV — Cervecero glaseado</option><option value="SK">SK — Skinny</option><option value="HB">HB — Jaibolero</option><option value="TQ">TQ — Tequilero</option><option value="GL">GL — Glaseado</option><option value="TR">TR — Transparente</option></optgroup>
+            <optgroup label="MDF"><option value="DC">DC — Doble cara</option><option value="RN">RN — Reverso negro</option><option value="RM">RM — Reverso madera</option></optgroup>
+            <optgroup label="Acrílico"><option value="PM">PM — Plano brillante</option><option value="TM">TM — Traslúcido mate C1</option><option value="TB">TB — Traslúcido brillante C2</option><option value="EB">EB — Esmerilado brillante</option><option value="EM">EM — Esmerilado mate 1C</option><option value="NM">NM — Negro mate 1C</option><option value="CE">CE — Espejo</option></optgroup>
+            <optgroup label="Tintas / papel"><option value="BT">BT — Bote estándar</option><option value="QN">QN — Paquete hojas</option><option value="SB">SB — Sublimación</option><option value="TN">TN — DTF et. negra</option><option value="EC">EC — Ecosolvente</option></optgroup>
+            <optgroup label="Gorras / textil"><option value="TR">TR — Trucker adulto</option><option value="FC">FC — FitCap</option><option value="MH">MH — Mesh</option><option value="CO">CO — Completo</option><option value="IF">IF — Infantil</option><option value="TP">TP — Tactoalgodón premium</option><option value="TA">TA — Tactoalgodón estándar</option><option value="AA">AA — Algodón</option></optgroup>
+            <optgroup label="General"><option value="NA">NA — No aplica</option></optgroup>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-acabado">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente de seleccionar
+          </span>
+          <div class="otro-wrap" id="otro-acabado"><input type="text" placeholder="Código (2 chars) y descripción"></div>
+        </div>
+      </div>
+
+      <div class="section-label">④ Presentación y medida</div>
+      <div class="grid3">
+        <div class="field">
+          <label>Piezas por caja <span class="badge">pos 8–10</span></label>
+          <select id="pres" onchange="handleOtro('pres');build()">
+            <option value="">— Sel. —</option>
+            <option value="001">001 — 1 pza</option><option value="002">002 — 2 pzas</option><option value="004">004 — 4 pzas</option><option value="006">006 — 6 pzas</option><option value="010">010 — 10 pzas</option><option value="012">012 — 12 pzas</option><option value="015">015 — 15 pzas</option><option value="016">016 — 16 pzas</option><option value="020">020 — 20 pzas</option><option value="023">023 — 23 pzas</option><option value="024">024 — 24 pzas</option><option value="025">025 — 25 pzas</option><option value="028">028 — 28 pzas</option><option value="030">030 — 30 pzas</option><option value="036">036 — 36 pzas</option><option value="048">048 — 48 pzas</option><option value="050">050 — 50 pzas</option><option value="060">060 — 60 pzas</option><option value="100">100 — 100 pzas</option><option value="200">200 — 200 pzas</option><option value="500">500 — 500 pzas</option>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-pres">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente
+          </span>
+          <div class="otro-wrap" id="otro-pres"><input type="text" placeholder="3 dígitos, ej: 018"></div>
+        </div>
+        <div class="field">
+          <label>Medida núm. <span class="badge">pos 11–13</span></label>
+          <input type="text" id="medida_num" class="mono" maxlength="3" placeholder="011" oninput="this.value=this.value.replace(/[^0-9]/g,'');build()">
+          <span class="pending-tag" id="pt-medida_num">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente
+          </span>
+        </div>
+        <div class="field">
+          <label>Unidad <span class="badge">pos 14</span></label>
+          <select id="medida_uni" onchange="handleOtro('medida_uni');build()">
+            <option value="">—</option>
+            <option value="O">O — oz</option><option value="M">M — ml / m</option><option value="G">G — gr</option><option value="K">K — kg</option><option value="V">V — voltios</option><option value="C">C — cm</option><option value="P">P — pulgadas</option><option value="N">N — sin medida</option><option value="0">0 — N/A</option>
+            <option value="__otro__">Otro…</option>
+          </select>
+          <span class="pending-tag" id="pt-medida_uni">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Pendiente
+          </span>
+          <div class="otro-wrap" id="otro-medida_uni"><input type="text" placeholder="1 char"></div>
+        </div>
+      </div>
+
+      <div class="section-label">⑤ Color</div>
+      <div class="field">
+        <label>Color principal <span class="badge">pos 15–16</span></label>
+        <select id="color" onchange="handleOtro('color');build()">
+          <option value="">— Selecciona —</option>
+          <optgroup label="Básicos"><option value="WH">WH — Blanco</option><option value="BK">BK — Negro</option><option value="RD">RD — Rojo</option><option value="BL">BL — Azul</option><option value="GR">GR — Verde</option><option value="YE">YE — Amarillo</option><option value="OR">OR — Naranja</option><option value="PK">PK — Rosa</option><option value="PP">PP — Morado</option></optgroup>
+          <optgroup label="Tonos"><option value="DB">DB — Azul oscuro/cobalto</option><option value="LB">LB — Azul claro</option><option value="DG">DG — Verde oscuro</option><option value="WI">WI — Vino</option><option value="TR">TR — Transparente</option><option value="GY">GY — Gris</option></optgroup>
+          <optgroup label="Metálicos"><option value="GD">GD — Dorado</option><option value="SV">SV — Plata</option><option value="TT">TT — Titanio</option><option value="RW">RW — Arcoíris</option><option value="PM">PM — Rosa metálico</option><option value="EP">EP — Plata espejo</option><option value="ED">ED — Dorado espejo</option><option value="ER">ER — Rosa cobrizo espejo</option></optgroup>
+          <optgroup label="Combos tapa/cuerpo"><option value="WL">WL — Blanco/azul</option><option value="WK">WK — Blanco/negro</option><option value="WG">WG — Blanco/verde</option><option value="WR">WR — Blanco/rojo</option><option value="SB">SB — Plata/azul</option><option value="SK">SK — Plata/negro</option><option value="SG">SG — Plata/verde</option><option value="SR">SR — Plata/rojo</option></optgroup>
+          <optgroup label="Tintas / papel"><option value="CY">CY — Cyan</option><option value="MG">MG — Magenta</option><option value="LC">LC — Light Cyan</option><option value="LM">LM — Light Magenta</option><option value="KT">KT — Kit CMYK</option><option value="BZ">BZ — Barniz</option></optgroup>
+          <optgroup label="Sin color"><option value="NA">NA — No aplica</option></optgroup>
+          <option value="__otro__">Otro…</option>
+        </select>
+        <span class="pending-tag" id="pt-color">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Pendiente de seleccionar
+        </span>
+        <div class="otro-wrap" id="otro-color"><input type="text" placeholder="Código (2 chars) y descripción"></div>
+      </div>
+
+    </div>
+    <!-- END LEFT -->
+
+    <!-- RIGHT: SKU PANEL -->
+    <div class="sku-panel">
+      <div class="sku-panel-title">SKU generado en tiempo real</div>
+      <div class="char-legend">
+        <div class="cl-item"><div class="cl-dot" style="background:#185fa5"></div>marca</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#0f6e56"></div>cat</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#854f0b"></div>tipo</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#993556"></div>acab.</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#3b6d11"></div>pres.</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#533ab7"></div>medida</div>
+        <div class="cl-item"><div class="cl-dot" style="background:#888780"></div>color</div>
+      </div>
+      <div class="sku-chars" id="sku-chars"></div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Campos completados</span><span id="progress-count">0 / 8</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+      <div class="pending-bar" id="pending-bar">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span id="pending-bar-text"></span>
+      </div>
+      <div class="valid-badge" id="valid-badge"></div>
+
+      <!-- SKU block with copy below -->
+      <div class="sku-block">
+        <div class="sku-string incomplete" id="sku-string">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</div>
+        <button class="sku-copy-btn" onclick="copyOnlySKU()">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Copiar SKU
+        </button>
+      </div>
+
+      <div class="json-section" id="json-section">
+        <div class="json-label">JSON del producto</div>
+        <pre class="json-out" id="json-out"></pre>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="copyJSON()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Copiar JSON
+          </button>
+        </div>
+      </div>
+      <button class="btn-reset" onclick="resetAll()">Limpiar todo</button>
+    </div>
+    <!-- END RIGHT -->
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const subcatMap = {
+  A:[['A','Cerámica'],['B','Acero'],['C','Aluminio'],['D','Vidrio'],['E','Peltre / enamel'],['N','N/A varios blanks']],
+  B:[['N','Prensas y equipos'],['T','Calandra'],['P','Repuestos / partes']],
+  C:[['S','Sublimación'],['E','Ecosolvente'],['D','DYE / inkjet'],['F','DTF'],['C','DTF UV'],['B','UV rígidos']],
+  D:[['N','Vinil HTV'],['G','Gran formato'],['R','Rígido / adherible']],
+  E:[['I','Laser fibra / diodo'],['C','Laser CO2'],['S','Plotter sublimación'],['E','Plotter ecosolvente'],['D','Impresora DTF'],['U','Impresora UV']],
+  F:[['S','Sublimación hojas / rollos'],['F','Papel fotográfico'],['T','Transfer / tissue'],['N','N/A']],
+  G:[['G','Acrílico / ACRISUB cortado'],['L','Lámina acrílico completa'],['P','Producto acrílico cristal'],['F','MDF cortado'],['S','ACRISUB HD sublimable']],
+  H:[['J','Herramientas / insumos'],['M','Mousepad / neopreno'],['E','Textil / gorras'],['B','Bolsas ecológicas'],['F','Foto piedra / relojes'],['L','Lentejuelas'],['N','N/A']],
+  N:[['A','Portavasos neopreno'],['P','Portalatas neopreno']]
+};
+const groupColors=['#185fa5','#185fa5','#0f6e56','#854f0b','#854f0b','#993556','#993556','#3b6d11','#3b6d11','#3b6d11','#533ab7','#533ab7','#533ab7','#533ab7','#888780','#888780'];
+
+function loadSubcat(preselect){
+  const c=document.getElementById('cat').value;
+  const s=document.getElementById('subcat');
+  s.innerHTML='<option value="">— Selecciona —</option>';
+  (subcatMap[c]||[]).forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=v+' — '+l;s.appendChild(o);});
+  const ot=document.createElement('option');ot.value='__otro__';ot.textContent='Otro…';s.appendChild(ot);
+  if(preselect) s.value=preselect;
+}
+
+function handleOtro(id){
+  const sel=document.getElementById(id);
+  const wrap=document.getElementById('otro-'+id);
+  if(!wrap) return;
+  if(sel && sel.value==='__otro__'){wrap.classList.add('show');wrap.querySelector('input').focus();}
+  else wrap.classList.remove('show');
+}
+
+function getVal(id){
+  const el=document.getElementById(id);
+  if(!el) return '';
+  if(el.tagName==='SELECT'){
+    if(el.value==='__otro__'){
+      const inp=document.querySelector('#otro-'+id+' input');
+      if(!inp||!inp.value) return '';
+      const maxLen=id==='tipo'||id==='acabado'||id==='color'?2:1;
+      return inp.value.replace(/\s.*$/,'').slice(0,maxLen).toUpperCase();
+    }
+    return el.value;
+  }
+  return el.value;
+}
+
+function selText(id){
+  const s=document.getElementById(id);
+  if(!s) return '';
+  if(s.value==='__otro__'){const inp=document.querySelector('#otro-'+id+' input');return inp?inp.value:'Otro';}
+  const t=s.options[s.selectedIndex]?.text||'';
+  return t.includes(' — ')?t.split(' — ').slice(1).join(' — '):t;
+}
+
+function setPending(id,pending){
+  const el=document.getElementById(id);
+  const tag=document.getElementById('pt-'+id);
+  if(el){if(pending) el.classList.add('pending');else el.classList.remove('pending');}
+  if(tag){if(pending) tag.classList.add('show');else tag.classList.remove('show');}
+}
+
+function build(){
+  const marca=getVal('marca'),cat=getVal('cat'),subcat=getVal('subcat');
+  const tipo=getVal('tipo'),acabado=getVal('acabado'),pres=getVal('pres');
+  const mn=(getVal('medida_num')||'').padStart(3,'0').slice(0,3);
+  const mu=getVal('medida_uni'),color=getVal('color');
+  const sku=marca+cat+subcat+tipo+acabado+pres+mn+mu+color;
+
+  const cont=document.getElementById('sku-chars');
+  cont.innerHTML='';
+  const ph=['M','C','S','T','T','A','A','P','P','P','N','N','N','U','C','C'];
+  for(let i=0;i<16;i++){
+    const d=document.createElement('div');
+    const ch=sku[i];
+    d.className='sku-char'+(ch?' filled':'');
+    if(ch){d.style.background=groupColors[i]+'22';d.style.color=groupColors[i];d.style.borderColor=groupColors[i]+'44';}
+    d.textContent=ch||ph[i]||'_';
+    cont.appendChild(d);
+  }
+
+  const grps=[marca,cat,subcat,tipo,acabado,pres,mn.replace(/^0+$/,''),mu,color];
+  const filled=grps.filter(v=>v&&v!=='000'&&v!=='0').length;
+  document.getElementById('progress-count').textContent=filled+' / 8';
+  document.getElementById('progress-fill').style.width=(filled/8*100)+'%';
+
+  const allFields=['marca','cat','subcat','tipo','acabado','pres','medida_num','medida_uni','color'];
+  const pendingCount=allFields.filter(id=>document.getElementById(id)?.classList?.contains('pending')).length;
+  const pb=document.getElementById('pending-bar');
+  const pbt=document.getElementById('pending-bar-text');
+  if(pendingCount>0){pb.classList.add('show');pbt.textContent=pendingCount===1?'1 campo no identificado — revísalo':pendingCount+' campos no identificados — revísalos';}
+  else pb.classList.remove('show');
+
+  const complete=marca&&cat&&subcat&&tipo&&acabado&&pres&&mn.length===3&&mu&&color;
+  const skuStr=document.getElementById('sku-string');
+  const badge=document.getElementById('valid-badge');
+
+  if(complete&&sku.length===16){
+    skuStr.textContent=sku; skuStr.className='sku-string';
+    if(pendingCount>0){badge.className='valid-badge warn';badge.innerHTML='<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> SKU completo — revisa campos marcados';}
+    else{badge.className='valid-badge ok';badge.innerHTML='<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M5 8l2.5 2.5L11 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg> SKU válido — 16 caracteres';}
+    document.getElementById('json-section').className='json-section visible';
+    renderJSON({sku,marca:selText('marca'),categoria:selText('cat'),sub_categoria:selText('subcat'),tipo_producto:selText('tipo'),acabado:selText('acabado'),presentacion_piezas:parseInt(pres,10),medida:fmtMedida(mn,mu),color:selText('color')});
+  } else {
+    skuStr.textContent=sku.padEnd(16,'_').slice(0,16); skuStr.className='sku-string incomplete';
+    badge.className=sku.length>0?'valid-badge err':'valid-badge';
+    if(sku.length>0) badge.innerHTML='<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Incompleto — faltan campos';
+    document.getElementById('json-section').className='json-section';
+  }
+}
+
+function fmtMedida(n,u){
+  const num=parseInt(n,10);
+  const map={O:'oz',M:'ml',G:'gr',K:'kg',V:'V',C:'cm',P:'"',N:'N/A','0':'N/A'};
+  if(!u||u==='N'||u==='0') return 'N/A';
+  return num+(map[u]||u);
+}
+
+function renderJSON(obj){
+  const lines=JSON.stringify(obj,null,2).split('\n');
+  document.getElementById('json-out').innerHTML=lines.map(l=>
+    l.replace(/"([^"]+)":/g,'<span class="kc">"$1"</span>:')
+     .replace(/: "([^"]+)"/g,': <span class="vc">"$1"</span>')
+     .replace(/: (\d+)/g,': <span class="nc">$1</span>')
+  ).join('\n');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+function copyJSON(){navigator.clipboard.writeText(document.getElementById('json-out').innerText).then(()=>showToast('JSON copiado'));}
+function copyOnlySKU(){
+  const sku=document.getElementById('sku-string').textContent.replace(/_/g,'').trim();
+  if(!sku){showToast('El SKU está incompleto');return;}
+  navigator.clipboard.writeText(sku).then(()=>showToast('SKU copiado: '+sku));
+}
+
+function setField(id,value,pending){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(el.tagName==='SELECT'){
+    const opt=Array.from(el.options).find(o=>o.value===value);
+    if(opt){el.value=value;document.getElementById('otro-'+id)?.classList.remove('show');}
+    else if(value){el.value='__otro__';const inp=document.querySelector('#otro-'+id+' input');if(inp){inp.value=value;document.getElementById('otro-'+id)?.classList.add('show');}}
+  } else {el.value=value||'';}
+  setPending(id,pending);
+}
+
+async function analyzeDescription(){
+  const desc=document.getElementById('desc').value.trim();
+  if(!desc){showToast('Escribe una descripción primero');return;}
+  const btn=document.getElementById('analyze-btn');
+  const ind=document.getElementById('analyzing-ind');
+  btn.disabled=true; ind.classList.add('show');
+  ['marca','cat','subcat','tipo','acabado','pres','medida_num','medida_uni','color'].forEach(id=>setPending(id,false));
+
+  const sys=`Eres un experto en SKUs de Color Make (empresa mexicana de sublimación).
+El SKU tiene 16 chars: [MARCA(1)][CAT(1)][SUBCAT(1)][TIPO(2)][ACABADO(2)][PRES(3)][MEDIDA_NUM(3)][MEDIDA_UNI(1)][COLOR(2)]
+
+MARCA: C=Color Make, B=Blue Heat, W=Marca Blanca, H=Huax, P=Promoción
+CAT: A=Blanks, B=Prensas, C=Tintas, D=Vinil, E=Equipos, F=Papel, G=Acrílicos, H=Varios
+SUBCAT(A): A=Cerámica,B=Acero,C=Aluminio,D=Vidrio,E=Peltre
+SUBCAT(B): N=Prensas,T=Calandra,P=Repuestos
+SUBCAT(C): S=Sublimación,E=Ecosolvente,D=DYE,F=DTF,C=DTF_UV,B=UV_rigidos
+SUBCAT(D): N=Vinil_HTV,G=Gran_formato,R=Rígido
+SUBCAT(F): S=Papel_sub,F=Fotográfico,T=Transfer
+SUBCAT(G): G=Acrilico_cortado,L=Lamina,F=MDF_cortado,S=ACRISUB_HD
+SUBCAT(H): J=Herramientas,M=Mousepad,E=Textil,B=Bolsas,F=Foto_piedra
+TIPO: MG=Mug,JR=Jarra,VS=Vaso,RF=Reforzada,TR=Tarro,BT=Botella,CN=Lata,KC=Llavero,DS=Destapador,BL=Block,FL=Flock,GL=Glitter,PF=Puff,FO=Foil,PU=PU,NE=Neon,MT=Metallic,SF=MetallicSoft,NG=NonGlue,PV=PVC,TC=Sublitec,CM=Camaleon,SP=Sub_paq,SJ=Jumbo,BT=Bote_tinta,PR=Prensa,CB=Combo,PY=Playera,CP=Gorra,BO=Bolsa,MO=Mochila,PZ=Rompecabezas,IM=Iman,KS=Llavero_ACRISUB,PS=Portarretrato_ACRISUB,LA=Lamina_acrilico,PN=Pluma,MP=Mousepad,NA=NoAplica
+ACABADO: AA=Grado_AAA,CI=Color_interior,MA=Magica,MI=Magica_interior,GL=Glitter_magica,MR=Espejo,SP=Perlada,NE=Neon,CU=Con_cuchara,TS=Tapa_silicon,HT=Asa_corazon,FR=Frosted,CN=Conica,BR=Base_redonda,AC=Asa_cuadrada,VN=Ventana,EP=Estilo_peltre,BC=Borde_color,LE=Lechera,AL=Laser,AR=Rosca_sub,SP=Deportiva,IF=Infantil,RO=Tapa_rosca,OA=Tapa_aro,ST=Starbooks,VJ=Viajero,PY=Playero,SK=Skinny,VN=Vinero,CC=Camper_chico,CG=Camper_grande,JL=Jumbo_laser,LK=Laser_skinny,VL=Vinero_laser,PL=Playero_laser,RF=Refresco,CV=Cervecero,HB=Jaibolero,TQ=Tequilero,DC=Doble_cara,RN=Reverso_negro,RM=Reverso_madera,TR=Trucker,FC=FitCap,MH=Mesh,TP=Tactoalgodon_premium,TA=Tactoalgodon,NA=NoAplica
+PRES: 3 dígitos, número de piezas: 001,006,010,012,016,020,024,025,036,048,050,060,100,200,500
+MEDIDA_NUM: 3 dígitos numéricos ej: 011=11oz,015=15oz,300=300ml,450=450ml,600=600ml,750=750ml,001=1kg,350=350ml,002=2.5oz
+MEDIDA_UNI: O=oz,M=ml/metros,G=gramos,K=kg,V=voltios,C=cm,P=pulgadas,N=sin_medida,0=no_aplica
+COLOR: WH=Blanco,BK=Negro,RD=Rojo,BL=Azul,GR=Verde,YE=Amarillo,OR=Naranja,PK=Rosa,PP=Morado,GD=Dorado,SV=Plata,TT=Titanio,RW=Arcoiris,DB=Azul_oscuro,LB=Azul_claro,DG=Verde_oscuro,WI=Vino,TR=Transparente,GY=Gris,CY=Cyan,MG=Magenta,LC=Light_cyan,LM=Light_magenta,KT=Kit_CMYK,NA=NoAplica,ER=Rosa_cobrizo,EP=Plata_espejo,ED=Dorado_espejo
+
+Responde SOLO con un JSON sin markdown:
+{"marca":"val_o_null","cat":"val_o_null","subcat":"val_o_null","tipo":"val_o_null","acabado":"val_o_null","pres":"3_digitos_o_null","medida_num":"3_digitos_o_null","medida_uni":"1_char_o_null","color":"val_o_null","pending":["campos_inciertos"]}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,system:sys,messages:[{role:'user',content:desc}]})});
+    const data=await res.json();
+    const raw=data.content?.find(b=>b.type==='text')?.text||'{}';
+    const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const pending=new Set(result.pending||[]);
+
+    if(result.cat){document.getElementById('cat').value=result.cat;loadSubcat(result.subcat||'');setPending('cat',pending.has('cat'));}
+    ['marca','tipo','acabado','medida_uni','color'].forEach(id=>{if(result[id]) setField(id,result[id],pending.has(id));});
+    if(result.subcat) setField('subcat',result.subcat,pending.has('subcat'));
+    if(result.pres) setField('pres',result.pres,pending.has('pres'));
+    if(result.medida_num){const el=document.getElementById('medida_num');el.value=result.medida_num;setPending('medida_num',pending.has('medida_num'));}
+
+    build();
+    const pc=pending.size;
+    showToast(pc===0?'Todos los campos identificados':'Rellené '+(9-pc)+' campos — '+pc+' pendientes');
+  } catch(err){
+    showToast('Error al analizar — revisa la conexión');
+    console.error(err);
+  } finally {
+    btn.disabled=false; ind.classList.remove('show');
+  }
+}
+
+function resetAll(){
+  document.getElementById('desc').value='';
+  ['marca','cat','tipo','acabado','pres','medida_uni','color'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.selectedIndex=0;el.classList.remove('pending');}
+    document.getElementById('pt-'+id)?.classList.remove('show');
+    const ow=document.getElementById('otro-'+id);
+    if(ow){ow.classList.remove('show');const inp=ow.querySelector('input');if(inp) inp.value='';}
+  });
+  document.getElementById('subcat').innerHTML='<option value="">— Selecciona —</option><option value="__otro__">Otro…</option>';
+  document.getElementById('subcat').classList.remove('pending');
+  document.getElementById('pt-subcat')?.classList.remove('show');
+  const mn=document.getElementById('medida_num');
+  mn.value='';mn.classList.remove('pending');
+  document.getElementById('pt-medida_num')?.classList.remove('show');
+  build();
+}
+
+document.querySelectorAll('.otro-wrap input').forEach(inp=>inp.addEventListener('input',build));
+build();
+</script>
+</body>
+</html>
